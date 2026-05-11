@@ -194,6 +194,12 @@
         return;
       }
 
+      // LINE 內建瀏覽器不支援相機權限
+      if (/Line\//i.test(navigator.userAgent)) {
+        showError('LINE 瀏覽器不支援相機權限。\n\n請點選右上角「⋯」\n→「在瀏覽器中開啟」\n再重新進入體驗。');
+        return;
+      }
+
       // 45 秒逾時（Mind AR WebAssembly 在慢速手機上可能需要這麼久）
       const timeoutId = setTimeout(() => {
         showError('啟動逾時。\n請確認已允許相機權限，然後重新整理頁面。\n\n若問題持續，請嘗試重新開啟瀏覽器後再試。');
