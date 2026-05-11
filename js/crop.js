@@ -5,7 +5,6 @@ const fileInput     = document.getElementById('fileInput');
 const cropCanvas    = document.getElementById('cropCanvas');
 const confirmBtn    = document.getElementById('confirmCropBtn');
 const previewImg    = document.getElementById('previewImg');
-const downloadBtn   = document.getElementById('downloadBtn');
 const ctx           = cropCanvas.getContext('2d');
 
 let originalImage   = null;   // 原始 Image 物件
@@ -197,10 +196,3 @@ confirmBtn.addEventListener('click', () => {
   setStep(3);
 });
 
-// ── 5. 下載圖片 ──
-downloadBtn.addEventListener('click', () => {
-  const link = document.createElement('a');
-  link.href     = previewImg.src;
-  link.download = 'my-pet-face.png';
-  link.click();
-});

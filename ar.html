@@ -62,21 +62,27 @@
       opacity: 0;
     }
 
-    /* 返回按鈕 */
-    #backBtn {
+    /* 底部按鈕列 */
+    #bottom-bar {
       position: absolute;
       bottom: 32px;
       left: 50%;
       transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      pointer-events: all;
+    }
+
+    #backBtn, #downloadBtn {
       background: rgba(107, 63, 30, 0.85);
       color: #F5ECD7;
       border: none;
-      padding: 12px 32px;
+      padding: 12px 24px;
       border-radius: 24px;
       font-size: 0.9rem;
-      pointer-events: all;
       cursor: pointer;
       letter-spacing: 0.05em;
+      white-space: nowrap;
     }
 
     /* 載入畫面 */
@@ -162,8 +168,11 @@
 
   <!-- UI 覆蓋層 -->
   <div id="ui-overlay">
-    <div id="hint">🔍 將鏡頭對準定位點</div>
-    <button id="backBtn" onclick="window.location.href='index.html'">← 返回</button>
+    <div id="hint">將鏡頭對準定位點</div>
+    <div id="bottom-bar">
+      <button id="backBtn" onclick="window.location.href='index.html'">← 返回</button>
+      <button id="downloadBtn">下載圖片</button>
+    </div>
   </div>
 
   <script>
@@ -218,6 +227,13 @@
           container: document.getElementById('ar-container'),
           imageTargetSrc: 'assets/targets.mind',
           maxTrack: 1,
+          // 需要連續幾幀確認才算「找到」，調高可減少誤觸發
+          warmupTolerance: 5,
+          // 允許幾幀找不到才算「失去」，調高讓追蹤更穩定不閃爍
+          missTolerance: 10,
+          // Kalman filter：filterBeta 越大越平滑，filterMinCF 越小越穩
+          filterMinCF: 0.001,
+          filterBeta: 100,
         });
 
         const { renderer, scene, camera } = mindarThree;
@@ -262,7 +278,15 @@
         clearTimeout(timeoutId);
         document.getElementById('loading').classList.add('hidden');
 
-        // ── 6. Render Loop ──
+        // ── 6. 下載按鈕 ──
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+          const link = document.createElement('a');
+          link.href     = petImageURL;
+          link.download = 'my-pet-face.jpg';
+          link.click();
+        });
+
+        // ── 7. Render Loop ──
         renderer.setAnimationLoop(() => {
           renderer.render(scene, camera);
         });
