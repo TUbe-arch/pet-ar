@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AR 體驗</title>
+
+  <!-- Mind AR + Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Noto Serif TC', sans-serif;
+    }
+
+    /* Mind AR 會自動把鏡頭畫面插入這裡 */
+    #ar-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    /* UI 覆蓋層 */
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* 頂部提示 */
+    #hint {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: #F5ECD7;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      letter-spacing: 0.05em;
+      transition: opacity 0.5s;
+    }
+
+    /* 找到定位點時隱藏提示 */
+    #hint.found { opacity: 0; }
+
+    /* 返回按鈕 */
+    #backBtn {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(107,63,30,0.85);
+      color: #F5ECD7;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      pointer-events: all;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+
+    /* 載入畫面 */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: #1a1008;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 200;
+      color: #F5ECD7;
+      transition: opacity 0.5s;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .paw-spin {
+      font-size: 3rem;
+      animation: spin 1.5s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    #loading p {
+      font-size: 0.9rem;
+      opacity: 0.7;
+      letter-spacing: 0.1em;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 載入畫面 -->
+<div id="loading">
+  <div class="paw-spin">🐾</div>
+  <p>啟動 AR 中，請稍候…</p>
+</div>
+
+<!-- AR 容器 -->
+<div id="ar-container"></div>
+
+<!-- UI 覆蓋層 -->
+<div id="ui-overlay">
+  <div id="hint">🔍 將鏡頭對準定位點</div>
+  <button id="backBtn" onclick="window.location.href='index.html'">← 返回</button>
+</div>
+
+<script>
+(async () => {
+
+  // ── 1. 取得寵物臉部圖片 ──
+  let petImageURL = sessionStorage.getItem('petFaceImage') || localStorage.getItem('petFaceImage');
+  localStorage.removeItem('petFaceImage'); // 讀完即清，避免舊圖殘留
+
+  if (!petImageURL) {
+    // 直接開 ar.html 時，動態產生內嵌佔位圖，不依賴外部檔案
+    const c = document.createElement('canvas');
+    c.width = c.height = 200;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#D4A96A';
+    cx.fillRect(0, 0, 200, 200);
+    cx.font = '100px serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.fillText('🐾', 100, 100);
+    petImageURL = c.toDataURL();
+  }
+
+  // ── 2. 初始化 Mind AR ──
+  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+    container: document.getElementById('ar-container'),
+    imageTargetSrc: 'assets/targets.mind',  // ← 定位點編譯檔（見說明）
+    maxTrack: 1,
+  });
+
+  const { renderer, scene, camera } = mindarThree;
+
+  // ── 3. 建立 Three.js 場景 ──
+  // 光源
+  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+  scene.add(light);
+
+  // 載入寵物臉部貼圖
+  const textureLoader = new THREE.TextureLoader();
+  const petTexture = await new Promise((resolve) => {
+    textureLoader.load(petImageURL, resolve);
+  });
+
+  // 建立平面（尺寸 1x1，相對於定位點大小）
+  // 調整 planeWidth / planeHeight 來改變貼圖大小
+  const planeWidth  = 1.2;
+  const planeHeight = 1.2;
+
+  const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+  const material = new THREE.MeshBasicMaterial({
+    map: petTexture,
+    transparent: true,
+    opacity: 1,
+    side: THREE.DoubleSide,
+  });
+  const plane = new THREE.Mesh(geometry, material);
+
+  // 位置偏移（相對於定位點中心）
+  // x: 左右（正=右）, y: 上下（正=上）, z: 前後（負=靠近鏡頭）
+  plane.position.set(0, 0, 0);
+
+  // ── 4. 建立 Mind AR Anchor（綁定到定位點 #0）──
+  const anchor = mindarThree.addAnchor(0);
+  anchor.group.add(plane);
+
+  // 定位點找到 / 消失時的提示
+  anchor.onTargetFound = () => {
+    document.getElementById('hint').classList.add('found');
+  };
+  anchor.onTargetLost = () => {
+    document.getElementById('hint').classList.remove('found');
+  };
+
+  // ── 5. 啟動 AR ──
+  await mindarThree.start();
+
+  // 隱藏載入畫面
+  document.getElementById('loading').classList.add('hidden');
+
+  // ── 6. Render Loop ──
+  renderer.setAnimationLoop(() => {
+    renderer.render(scene, camera);
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>寵物 AR 體驗</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Zen+Antique&display=swap');
+
+    :root {
+      --brown: #6B3F1E;
+      --cream: #F5ECD7;
+      --dark: #1a1008;
+      --accent: #C47C2B;
+      --light-brown: #D4A96A;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: var(--cream);
+      font-family: 'Noto Serif TC', serif;
+      color: var(--dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      background: var(--brown);
+      padding: 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-family: 'Zen Antique', serif;
+      color: var(--cream);
+      font-size: 1.6rem;
+      letter-spacing: 0.15em;
+    }
+
+    header p {
+      color: var(--light-brown);
+      font-size: 0.8rem;
+      margin-top: 4px;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── STEP INDICATOR ── */
+    .steps {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      padding: 20px 20px 0;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .step {
+      flex: 1;
+      text-align: center;
+      position: relative;
+    }
+
+    .step::after {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 100%;
+      height: 2px;
+      background: var(--light-brown);
+      opacity: 0.3;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--light-brown);
+      color: var(--cream);
+      font-size: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+      transition: background 0.3s;
+    }
+
+    .step.active .step-num { background: var(--brown); }
+    .step.done .step-num { background: var(--accent); }
+
+    .step-label {
+      font-size: 0.65rem;
+      color: var(--brown);
+      margin-top: 4px;
+      opacity: 0.7;
+    }
+
+    .step.active .step-label { opacity: 1; font-weight: 700; }
+
+    /* ── SCREENS ── */
+    .screen {
+      display: none;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px 20px;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .screen.active { display: flex; }
+
+    /* ── UPLOAD SCREEN ── */
+    .upload-zone {
+      width: 100%;
+      border: 2px dashed var(--light-brown);
+      border-radius: 16px;
+      padding: 48px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+    }
+
+    .upload-zone:active { background: #fdf5e6; }
+
+    .upload-icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .upload-zone p {
+      color: var(--brown);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .upload-zone small {
+      color: var(--light-brown);
+      font-size: 0.75rem;
+    }
+
+    #fileInput { display: none; }
+
+    /* ── CROP SCREEN ── */
+    .crop-instruction {
+      background: var(--brown);
+      color: var(--cream);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      text-align: center;
+      line-height: 1.5;
+      width: 100%;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      touch-action: none;
+    }
+
+    #cropCanvas {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* ── PREVIEW SCREEN ── */
+    .preview-box {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 4px solid var(--brown);
+      box-shadow: 0 8px 32px rgba(107,63,30,0.2);
+    }
+
+    #previewImg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-label {
+      font-size: 0.85rem;
+      color: var(--brown);
+      text-align: center;
+      opacity: 0.8;
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-primary {
+      background: var(--brown);
+      color: var(--cream);
+    }
+
+    .btn-primary:active { background: var(--dark); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--brown);
+      border: 1.5px solid var(--brown);
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── AR LINK ── */
+    .ar-link-box {
+      width: 100%;
+      background: white;
+      border: 1.5px solid var(--light-brown);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .ar-link-box p {
+      font-size: 0.8rem;
+      color: var(--brown);
+      margin-bottom: 10px;
+    }
+
+    .ar-link-box a {
+      display: inline-block;
+      background: var(--brown);
+      color: var(--cream);
+      padding: 10px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>寵物 AR 體驗</h1>
+  <p>上傳你的寵物照片，透過 AR 看見牠</p>
+</header>
+
+<!-- Step Indicator -->
+<div class="steps">
+  <div class="step active" id="s1">
+    <div class="step-num">1</div>
+    <div class="step-label">上傳照片</div>
+  </div>
+  <div class="step" id="s2">
+    <div class="step-num">2</div>
+    <div class="step-label">框選臉部</div>
+  </div>
+  <div class="step" id="s3">
+    <div class="step-num">3</div>
+    <div class="step-label">確認 & AR</div>
+  </div>
+</div>
+
+<!-- SCREEN 1: 上傳照片 -->
+<div class="screen active" id="screen1">
+  <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon">🐾</div>
+    <p>點擊上傳寵物照片</p>
+    <small>支援 JPG / PNG</small>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" />
+</div>
+
+<!-- SCREEN 2: 框選臉部 -->
+<div class="screen" id="screen2">
+  <div class="crop-instruction">
+    用手指在照片上<strong>拖曳框選</strong>寵物的臉部範圍
+  </div>
+  <div class="canvas-wrapper">
+    <canvas id="cropCanvas"></canvas>
+  </div>
+  <button class="btn btn-primary" id="confirmCropBtn" disabled>確認框選範圍</button>
+  <button class="btn btn-secondary" onclick="resetToUpload()">重新上傳</button>
+</div>
+
+<!-- SCREEN 3: 預覽 & AR -->
+<div class="screen" id="screen3">
+  <div class="preview-label">✨ 裁切完成！這是你的寵物圖像</div>
+  <div class="preview-box">
+    <img id="previewImg" src="" alt="寵物臉部" />
+  </div>
+  <button class="btn btn-accent" id="downloadBtn">💾 下載圖片到手機</button>
+  <div class="ar-link-box">
+    <p>點擊下方按鈕，開啟 AR 體驗<br>將鏡頭對準貓咪圖騰旁的定位點</p>
+    <a href="ar.html" id="arLink">🐱 開啟 AR 體驗</a>
+  </div>
+  <button class="btn btn-secondary" onclick="resetToUpload()">重新開始</button>
+</div>
+
+<script src="js/crop.js"></script>
+</body>
+</html>
