@@ -1,19 +1,30 @@
 // ── crop.js ──
-// 負責：上傳照片、框選、裁切、下載、傳遞圖片給 AR 頁面
+// 負責：上傳照片、框選（SVG 貓臉遮罩）、裁切、傳遞圖片給 AR 頁面
 
-const fileInput     = document.getElementById('fileInput');
-const cropCanvas    = document.getElementById('cropCanvas');
-const confirmBtn    = document.getElementById('confirmCropBtn');
-const previewImg    = document.getElementById('previewImg');
-const ctx           = cropCanvas.getContext('2d');
+const fileInput  = document.getElementById('fileInput');
+const cropCanvas = document.getElementById('cropCanvas');
+const confirmBtn = document.getElementById('confirmCropBtn');
+const previewImg = document.getElementById('previewImg');
+const ctx        = cropCanvas.getContext('2d');
 
-let originalImage   = null;   // 原始 Image 物件
-let scaleRatio      = 1;      // 顯示縮放比（canvas顯示尺寸 vs 原圖尺寸）
-
-// 框選狀態
-let isDrawing = false;
+let originalImage = null;
+let scaleRatio    = 1;
+let isDrawing     = false;
 let startX = 0, startY = 0;
-let currentRect = null;       // { x, y, w, h } 在 canvas 座標系
+let currentRect   = null;
+
+// ── SVG 遮罩載入 ──
+const svgMaskImg = new Image();
+let svgReady = false;
+svgMaskImg.onload  = () => { svgReady = true; };
+svgMaskImg.onerror = () => { console.warn('cat-mask.svg 載入失敗'); };
+svgMaskImg.src = 'assets/cat-mask.svg';
+
+// SVG viewBox 長寬比（468 × 341）
+const SVG_ASPECT = 341 / 468;
+
+// 重用的 offscreen canvas（避免每幀 GC）
+let maskCanvas = null;
 
 // ── STEP 切換 ──
 function setStep(n) {
@@ -35,7 +46,7 @@ function resetToUpload() {
 }
 
 // ── 1. 上傳照片 ──
-const MAX_SOURCE_PX = 1600; // 超過此尺寸先縮小，避免 canvas 記憶體不足
+const MAX_SOURCE_PX = 1600;
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -66,7 +77,7 @@ fileInput.addEventListener('change', (e) => {
   reader.readAsDataURL(file);
 });
 
-// ── 2. 設定 Canvas（填滿寬度，保持比例）──
+// ── 2. 設定 Canvas ──
 function setupCanvas(img) {
   const maxW = cropCanvas.parentElement.clientWidth;
   scaleRatio  = maxW / img.width;
@@ -79,40 +90,72 @@ function setupCanvas(img) {
   drawImage();
 }
 
+// ── 拖曳矩形 → SVG overlay 位置（維持長寬比置中）──
+function rectToOverlay({ x, y, w, h }) {
+  const aspect = svgReady && svgMaskImg.naturalWidth > 0
+    ? svgMaskImg.naturalHeight / svgMaskImg.naturalWidth
+    : SVG_ASPECT;
+
+  const fitByW = { w, h: w * aspect };
+  const fitByH = { w: h / aspect, h };
+  const { w: ow, h: oh } = (fitByW.h <= h) ? fitByW : fitByH;
+  return {
+    x: x + (w - ow) / 2,
+    y: y + (h - oh) / 2,
+    w: ow,
+    h: oh,
+  };
+}
+
+// ── 3. 繪製 ──
 function drawImage() {
   ctx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
   ctx.drawImage(originalImage, 0, 0);
-  if (currentRect) drawRect(currentRect);
+  if (currentRect) {
+    if (svgReady) {
+      drawSvgOverlay(rectToOverlay(currentRect));
+    } else {
+      drawFallbackRect(currentRect);
+    }
+  }
 }
 
-function drawRect(r) {
-  // 半透明遮罩
+// SVG 遮罩預覽：貓臉範圍內透出原圖，外圍暗化
+function drawSvgOverlay({ x, y, w, h }) {
+  // offscreen canvas：原圖 × SVG alpha mask → 只保留貓臉內部
+  if (!maskCanvas) maskCanvas = document.createElement('canvas');
+  maskCanvas.width  = cropCanvas.width;
+  maskCanvas.height = cropCanvas.height;
+  const mc = maskCanvas.getContext('2d');
+  mc.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+  mc.drawImage(originalImage, 0, 0);
+  mc.globalCompositeOperation = 'destination-in';
+  mc.drawImage(svgMaskImg, x, y, w, h);
+  mc.globalCompositeOperation = 'source-over';
+
+  // 主畫布：暗化全圖 → 疊上貓臉內的原圖
+  ctx.fillStyle = 'rgba(0,0,0,0.52)';
+  ctx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+  ctx.drawImage(maskCanvas, 0, 0);
+
+  // SVG 輪廓（半透明疊在上方作為視覺引導）
+  ctx.globalAlpha = 0.55;
+  ctx.drawImage(svgMaskImg, x, y, w, h);
+  ctx.globalAlpha = 1;
+}
+
+// SVG 尚未載入時的備用矩形顯示
+function drawFallbackRect({ x, y, w, h }) {
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-
-  // 挖出選取區域
-  ctx.clearRect(r.x, r.y, r.w, r.h);
-  ctx.drawImage(originalImage, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
-
-  // 邊框
+  ctx.clearRect(x, y, w, h);
+  ctx.drawImage(originalImage, x, y, w, h, x, y, w, h);
   ctx.strokeStyle = '#C47C2B';
-  ctx.lineWidth   = Math.max(3, 3 / scaleRatio);
-  ctx.strokeRect(r.x, r.y, r.w, r.h);
-
-  // 四角標記
-  const cs = Math.max(16, 16 / scaleRatio);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = Math.max(2, 2 / scaleRatio);
-  [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].forEach(([cx, cy]) => {
-    ctx.beginPath();
-    ctx.moveTo(cx - cs * Math.sign(r.w - (cx - r.x) * 2 || 1), cy);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx, cy - cs * Math.sign(r.h - (cy - r.y) * 2 || 1));
-    ctx.stroke();
-  });
+  ctx.lineWidth = Math.max(3, 3 / scaleRatio);
+  ctx.strokeRect(x, y, w, h);
 }
 
-// ── 3. 觸控 / 滑鼠事件（轉換座標）──
+// ── 4. 觸控 / 滑鼠事件 ──
 function getCanvasPos(e) {
   const rect  = cropCanvas.getBoundingClientRect();
   const touch = e.touches ? e.touches[0] : e;
@@ -147,7 +190,7 @@ function onMove(e) {
 function onEnd(e) {
   if (!isDrawing) return;
   isDrawing = false;
-  if (currentRect && currentRect.w > 10 && currentRect.h > 10) {
+  if (currentRect && currentRect.w > 20 && currentRect.h > 20) {
     confirmBtn.disabled = false;
   }
 }
@@ -159,40 +202,40 @@ cropCanvas.addEventListener('touchstart', onStart, { passive: false });
 cropCanvas.addEventListener('touchmove',  onMove,  { passive: false });
 cropCanvas.addEventListener('touchend',   onEnd);
 
-// ── 4. 確認裁切 ──
-const MAX_CROP_PX = 800; // 裁切輸出最大邊長，JPEG 壓縮後體積可控
+// ── 5. 確認裁切（PNG 保留透明度）──
+const MAX_CROP_PX = 800;
 
 confirmBtn.addEventListener('click', () => {
   if (!currentRect) return;
 
-  const { x, y, w, h } = currentRect;
-
-  // 限制輸出尺寸
-  const scale = Math.min(1, MAX_CROP_PX / Math.max(w, h));
-  const outW = Math.round(w * scale);
-  const outH = Math.round(h * scale);
+  const { x, y, w, h } = rectToOverlay(currentRect);
+  const scale  = Math.min(1, MAX_CROP_PX / Math.max(w, h));
+  const finalW = Math.round(w * scale);
+  const finalH = Math.round(h * scale);
 
   const offscreen = document.createElement('canvas');
-  offscreen.width  = outW;
-  offscreen.height = outH;
-  offscreen.getContext('2d').drawImage(originalImage, x, y, w, h, 0, 0, outW, outH);
+  offscreen.width  = finalW;
+  offscreen.height = finalH;
+  const oc = offscreen.getContext('2d');
 
-  // JPEG 壓縮大幅降低體積，避免 storage 超限
-  const dataURL = offscreen.toDataURL('image/jpeg', 0.85);
+  // 裁切對應區域的原圖
+  oc.drawImage(originalImage, x, y, w, h, 0, 0, finalW, finalH);
 
-  // sessionStorage 優先；失敗時備援至 localStorage（跨頁可讀）
+  // 套用 SVG 貓臉遮罩（destination-in：只保留 SVG 形狀內的像素）
+  if (svgReady) {
+    oc.globalCompositeOperation = 'destination-in';
+    oc.drawImage(svgMaskImg, 0, 0, finalW, finalH);
+  }
+
+  const dataURL = offscreen.toDataURL('image/png');
+
   try {
     sessionStorage.setItem('petFaceImage', dataURL);
     localStorage.removeItem('petFaceImage');
   } catch {
-    try {
-      localStorage.setItem('petFaceImage', dataURL);
-    } catch {
-      // 極端情況：兩個 storage 都滿，ar.html 會顯示佔位圖
-    }
+    try { localStorage.setItem('petFaceImage', dataURL); } catch {}
   }
 
   previewImg.src = dataURL;
   setStep(3);
 });
-
