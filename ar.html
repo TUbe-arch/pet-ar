@@ -251,7 +251,8 @@
         // targets.mind 需包含這兩張來源圖，compile 順序即對應 index
         const TARGET_COUNT = 2;
         for (let i = 0; i < TARGET_COUNT; i++) {
-          const geometry = new THREE.PlaneGeometry(1.2, 1.2);
+          // 依實體尺寸換算：貓臉 9cm × 6.5cm，定位圖 14.5cm = 1 unit
+          const geometry = new THREE.PlaneGeometry(9 / 14.5, 6.5 / 14.5);
           const material = new THREE.MeshBasicMaterial({
             map: petTexture,
             transparent: true,
