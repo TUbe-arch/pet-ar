@@ -281,13 +281,13 @@
         clearTimeout(timeoutId);
         document.getElementById('loading').classList.add('hidden');
 
-        // ── 6. 下載按鈕 ──
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-          const link = document.createElement('a');
-          link.href = petImageURL;
-          link.download = 'my-pet-face.jpg';
-          link.click();
-        });
+        // ── 6. 下載按鈕（暫時停用：HTML 按鈕已註解，啟用時一併取消）──
+        // document.getElementById('downloadBtn').addEventListener('click', () => {
+        //   const link = document.createElement('a');
+        //   link.href = petImageURL;
+        //   link.download = 'my-pet-face.jpg';
+        //   link.click();
+        // });
 
         // ── 7. Render Loop ──
         renderer.setAnimationLoop(() => {
