@@ -264,7 +264,7 @@
 <body>
 
 <header>
-  <h1>寵物 AR 體驗</h1>
+  <h1>寵物 AR</h1>
   <p>請上傳你的寵物照片</p>
 </header>
 
@@ -320,5 +320,10 @@
 </div>
 
 <script src="js/crop.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+  }
+</script>
 </body>
 </html>
