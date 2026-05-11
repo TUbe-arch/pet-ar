@@ -1,4 +1,4 @@
-# 🐾 寵物 AR 體驗 — 專案說明
+# 寵物 AR 體驗 — 專案說明
 
 ## 資料夾結構
 
@@ -9,13 +9,13 @@ pet-ar/
 ├── js/
 │   └── crop.js       ← 框選裁切邏輯
 └── assets/
-    ├── targets.mind  ← ⚠️ 需要你自己產生（見下方說明）
+    ├── targets.mind  ← 需要自己產生（見下方說明）
     └── placeholder.png ← 可選，預設佔位圖
 ```
 
 ---
 
-## ⚠️ 最重要的步驟：產生 targets.mind
+## 最重要的步驟：產生 targets.mind
 
 `targets.mind` 是 Mind AR 的定位點編譯檔，**你必須自己產生**。
 
