@@ -104,14 +104,41 @@
       opacity: 0.7;
       letter-spacing: 0.1em;
     }
+
+    #loading-error {
+      display: none;
+      max-width: 300px;
+      background: rgba(255, 80, 80, 0.12);
+      border: 1px solid rgba(255, 120, 120, 0.35);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.8rem;
+      text-align: center;
+      line-height: 1.8;
+      white-space: pre-line;
+    }
+
+    #loading-back-btn {
+      display: none;
+      background: rgba(107,63,30,0.85);
+      color: #F5ECD7;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 20px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
   </style>
 </head>
 <body>
 
 <!-- 載入畫面 -->
 <div id="loading">
-  <div class="paw-spin">🐾</div>
-  <p>啟動 AR 中，請稍候…</p>
+  <div class="paw-spin" id="loading-spinner">🐾</div>
+  <p id="loading-msg">啟動 AR 中，請稍候…</p>
+  <div id="loading-error"></div>
+  <button id="loading-back-btn" onclick="window.location.href='index.html'">← 返回首頁</button>
 </div>
 
 <!-- AR 容器 -->
@@ -124,86 +151,114 @@
 </div>
 
 <script>
+function showError(msg) {
+  document.getElementById('loading-spinner').style.animation = 'none';
+  document.getElementById('loading-msg').textContent = '啟動失敗';
+  const errEl = document.getElementById('loading-error');
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
+  document.getElementById('loading-back-btn').style.display = 'inline-block';
+}
+
 (async () => {
 
-  // ── 1. 取得寵物臉部圖片 ──
-  let petImageURL = sessionStorage.getItem('petFaceImage') || localStorage.getItem('petFaceImage');
-  localStorage.removeItem('petFaceImage'); // 讀完即清，避免舊圖殘留
-
-  if (!petImageURL) {
-    // 直接開 ar.html 時，動態產生內嵌佔位圖，不依賴外部檔案
-    const c = document.createElement('canvas');
-    c.width = c.height = 200;
-    const cx = c.getContext('2d');
-    cx.fillStyle = '#D4A96A';
-    cx.fillRect(0, 0, 200, 200);
-    cx.font = '100px serif';
-    cx.textAlign = 'center';
-    cx.textBaseline = 'middle';
-    cx.fillText('🐾', 100, 100);
-    petImageURL = c.toDataURL();
+  // file:// 下相機完全無法運作，提早告知
+  if (location.protocol === 'file:') {
+    showError('請透過 HTTP / HTTPS 伺服器開啟此頁面。\n直接開啟檔案（file://）無法使用相機。');
+    return;
   }
 
-  // ── 2. 初始化 Mind AR ──
-  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-    container: document.getElementById('ar-container'),
-    imageTargetSrc: 'assets/targets.mind',  // ← 定位點編譯檔（見說明）
-    maxTrack: 1,
-  });
+  // 45 秒逾時（Mind AR WebAssembly 在慢速手機上可能需要這麼久）
+  const timeoutId = setTimeout(() => {
+    showError('啟動逾時。\n請確認已允許相機權限，然後重新整理頁面。\n\n若問題持續，請嘗試重新開啟瀏覽器後再試。');
+  }, 45000);
 
-  const { renderer, scene, camera } = mindarThree;
+  function setStatus(msg) {
+    document.getElementById('loading-msg').textContent = msg;
+  }
 
-  // ── 3. 建立 Three.js 場景 ──
-  // 光源
-  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
-  scene.add(light);
+  try {
 
-  // 載入寵物臉部貼圖
-  const textureLoader = new THREE.TextureLoader();
-  const petTexture = await new Promise((resolve) => {
-    textureLoader.load(petImageURL, resolve);
-  });
+    // ── 1. 取得寵物臉部圖片 ──
+    let petImageURL = sessionStorage.getItem('petFaceImage') || localStorage.getItem('petFaceImage');
+    localStorage.removeItem('petFaceImage');
 
-  // 建立平面（尺寸 1x1，相對於定位點大小）
-  // 調整 planeWidth / planeHeight 來改變貼圖大小
-  const planeWidth  = 1.2;
-  const planeHeight = 1.2;
+    if (!petImageURL) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 200;
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#D4A96A';
+      cx.fillRect(0, 0, 200, 200);
+      cx.font = '100px serif';
+      cx.textAlign = 'center';
+      cx.textBaseline = 'middle';
+      cx.fillText('🐾', 100, 100);
+      petImageURL = c.toDataURL();
+    }
 
-  const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
-  const material = new THREE.MeshBasicMaterial({
-    map: petTexture,
-    transparent: true,
-    opacity: 1,
-    side: THREE.DoubleSide,
-  });
-  const plane = new THREE.Mesh(geometry, material);
+    // ── 2. 初始化 Mind AR ──
+    setStatus('載入 AR 引擎中…');
+    const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+      container: document.getElementById('ar-container'),
+      imageTargetSrc: 'assets/targets.mind',
+      maxTrack: 1,
+    });
 
-  // 位置偏移（相對於定位點中心）
-  // x: 左右（正=右）, y: 上下（正=上）, z: 前後（負=靠近鏡頭）
-  plane.position.set(0, 0, 0);
+    const { renderer, scene, camera } = mindarThree;
 
-  // ── 4. 建立 Mind AR Anchor（綁定到定位點 #0）──
-  const anchor = mindarThree.addAnchor(0);
-  anchor.group.add(plane);
+    // ── 3. 建立 Three.js 場景 ──
+    const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+    scene.add(light);
 
-  // 定位點找到 / 消失時的提示
-  anchor.onTargetFound = () => {
-    document.getElementById('hint').classList.add('found');
-  };
-  anchor.onTargetLost = () => {
-    document.getElementById('hint').classList.remove('found');
-  };
+    const textureLoader = new THREE.TextureLoader();
+    const petTexture = await new Promise((resolve, reject) => {
+      textureLoader.load(petImageURL, resolve, undefined, reject);
+    });
 
-  // ── 5. 啟動 AR ──
-  await mindarThree.start();
+    const planeWidth  = 1.2;
+    const planeHeight = 1.2;
 
-  // 隱藏載入畫面
-  document.getElementById('loading').classList.add('hidden');
+    const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+    const material = new THREE.MeshBasicMaterial({
+      map: petTexture,
+      transparent: true,
+      opacity: 1,
+      side: THREE.DoubleSide,
+    });
+    const plane = new THREE.Mesh(geometry, material);
+    plane.position.set(0, 0, 0);
 
-  // ── 6. Render Loop ──
-  renderer.setAnimationLoop(() => {
-    renderer.render(scene, camera);
-  });
+    // ── 4. 建立 Mind AR Anchor（綁定到定位點 #0）──
+    const anchor = mindarThree.addAnchor(0);
+    anchor.group.add(plane);
+
+    anchor.onTargetFound = () => {
+      document.getElementById('hint').classList.add('found');
+    };
+    anchor.onTargetLost = () => {
+      document.getElementById('hint').classList.remove('found');
+    };
+
+    // ── 5. 啟動 AR（此步驟會請求相機權限）──
+    setStatus('啟動相機中，請允許相機權限…');
+    await mindarThree.start();
+
+    clearTimeout(timeoutId);
+    document.getElementById('loading').classList.add('hidden');
+
+    // ── 6. Render Loop ──
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
+
+  } catch (err) {
+    clearTimeout(timeoutId);
+    let msg = `啟動失敗：${err.message || '未知錯誤'}`;
+    if (err.name === 'NotAllowedError') {
+      msg = '相機存取被拒絕。\n請在瀏覽器設定中允許相機權限，然後重新整理頁面。';
+    }
+    showError(msg);
+  }
 
 })();
 </script>
