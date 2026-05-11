@@ -54,12 +54,12 @@ fileInput.addEventListener('change', (e) => {
         tmp.height = Math.round(img.height * scale);
         tmp.getContext('2d').drawImage(img, 0, 0, tmp.width, tmp.height);
         const scaled = new Image();
-        scaled.onload = () => { originalImage = scaled; setupCanvas(scaled); setStep(2); };
+        scaled.onload = () => { originalImage = scaled; setStep(2); setupCanvas(scaled); };
         scaled.src = tmp.toDataURL('image/jpeg', 0.9);
       } else {
         originalImage = img;
-        setupCanvas(img);
         setStep(2);
+        setupCanvas(img);
       }
     };
     img.src = ev.target.result;
