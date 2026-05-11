@@ -1,6 +1,6 @@
 // ── Service Worker ──
 // 每次部署新版本時，只需更新下方 VERSION 字串
-const VERSION = 'v0.1.3';
+const VERSION = 'v0.1.4';
 const CACHE   = `pet-ar-${VERSION}`;
 
 const PRECACHE = [

@@ -234,6 +234,19 @@
       cursor: not-allowed;
     }
 
+    /* ── VERSION ── */
+    #app-version {
+      position: fixed;
+      bottom: 8px;
+      right: 12px;
+      font-size: 0.65rem;
+      color: var(--brown);
+      opacity: 0.35;
+      letter-spacing: 0.05em;
+      pointer-events: none;
+      z-index: 10;
+    }
+
     /* ── AR LINK ── */
     .ar-link-box {
       width: 100%;
@@ -319,11 +332,22 @@
   <button class="btn btn-secondary" onclick="resetToUpload()">重新開始</button>
 </div>
 
+<div id="app-version"></div>
+
 <script src="js/crop.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js');
   }
+
+  // 從 sw.js 讀取版本號，保持單一來源
+  fetch('./sw.js')
+    .then(r => r.text())
+    .then(text => {
+      const m = text.match(/const VERSION = ['"](.+)['"]/);
+      if (m) document.getElementById('app-version').textContent = m[1];
+    })
+    .catch(() => {});
 </script>
 </body>
 </html>
