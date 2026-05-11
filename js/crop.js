@@ -20,8 +20,8 @@ svgMaskImg.onload  = () => { svgReady = true; };
 svgMaskImg.onerror = () => { console.warn('cat-mask.svg 載入失敗'); };
 svgMaskImg.src = 'assets/cat-mask.svg';
 
-// SVG viewBox 長寬比（468 × 341）
-const SVG_ASPECT = 341 / 468;
+// 對應實體物件比例：貓臉區域 9cm × 6.5cm
+const SVG_ASPECT = 6.5 / 9;
 
 // 重用的 offscreen canvas（避免每幀 GC）
 let maskCanvas = null;
