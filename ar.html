@@ -73,7 +73,8 @@
       pointer-events: all;
     }
 
-    #backBtn, #downloadBtn {
+    #backBtn,
+    #downloadBtn {
       background: rgba(107, 63, 30, 0.85);
       color: #F5ECD7;
       border: none;
@@ -251,8 +252,8 @@
         // targets.mind 需包含這兩張來源圖，compile 順序即對應 index
         const TARGET_COUNT = 2;
         for (let i = 0; i < TARGET_COUNT; i++) {
-          // 依實體尺寸換算：貓臉 9*0.9cm × 6.5*0.9cm，定位圖 14.5cm = 1 unit
-          const geometry = new THREE.PlaneGeometry(8.1 / 14.5, 5.85 / 14.5);
+          // 依實體尺寸換算：貓臉 9*0.8cm × 6.5*0.8cm，定位圖 14.5cm = 1 unit
+          const geometry = new THREE.PlaneGeometry(7.2 / 14.5, 5.2 / 14.5);
           const material = new THREE.MeshBasicMaterial({
             map: petTexture,
             transparent: true,
@@ -283,7 +284,7 @@
         // ── 6. 下載按鈕 ──
         document.getElementById('downloadBtn').addEventListener('click', () => {
           const link = document.createElement('a');
-          link.href     = petImageURL;
+          link.href = petImageURL;
           link.download = 'my-pet-face.jpg';
           link.click();
         });
