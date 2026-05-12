@@ -1,4 +1,4 @@
-# 寵物 AR 體驗 — 專案說明
+# 寵物 AR
 
 ## 資料夾結構
 
@@ -10,21 +10,21 @@ pet-ar/
 │   └── crop.js       ← 框選裁切邏輯
 └── assets/
     ├── targets.mind  ← 需要自己產生（見下方說明）
-    └── placeholder.png ← 可選，預設佔位圖
+    └── cat-mask.svg ← 作為貓臉擷取路徑的svg向量檔案
 ```
 
 ---
 
-## 最重要的步驟：產生 targets.mind
+## 產生 targets.mind
 
-`targets.mind` 是 Mind AR 的定位點編譯檔，**你必須自己產生**。
+`targets.mind` 是 Mind AR 的定位點編譯檔，**必須自己產生**。
 
 ### 步驟：
 
 1. 打開這個網址：
    **https://hiukim.github.io/mind-ar-js-doc/tools/compile**
 
-2. 上傳你的定位點圖片（貓腳印 or 你設計的圖案）
+2. 上傳定位點圖片
 
 3. 點擊 Compile
 
@@ -34,45 +34,21 @@ pet-ar/
 
 ### 定位點圖片設計建議：
 - 尺寸：至少 500x500px
+- 以置中為佳，因為預設座標為0,0,0置中，如定位點圖片想成像的地方不是正中央的話，在多個來源圖像時位置會有問題，因為成像只有一個，無法根據不同來源圖像客製化座標位置
 - 深色圖案在白色背景上
 - 避免純圓形，加入文字或不對稱元素
 - 儲存為 JPG 或 PNG
 
 ---
 
-## 部署到 GitHub Pages
-
-1. 在 GitHub 建立一個新的 Repository（設為 Public）
-2. 把整個 `pet-ar/` 資料夾的內容上傳上去
-3. 進入 Repository → Settings → Pages
-4. Source 選 `main` branch → 根目錄 `/`
-5. 儲存後等約 1 分鐘
-6. 你的網址會是：`https://你的帳號.github.io/你的Repo名稱/`
-
----
-
-## AR 貼圖位置調整
+## AR 貼圖大小調整
 
 在 `ar.html` 找到這段，調整數值：
 
 ```javascript
-// 貼圖大小（相對於定位點）
-const planeWidth  = 1.2;  // 增大 = 貼圖變大
-const planeHeight = 1.2;
-
-// 貼圖位置偏移（相對於定位點中心）
-plane.position.set(
-  0,    // x：正數=往右，負數=往左
-  0,    // y：正數=往上，負數=往下
-  0     // z：通常不動
-);
+// 依實體尺寸換算：貓臉 9*0.9cm × 6.5*0.9cm，定位圖 14.5cm = 1 unit
+const geometry = new THREE.PlaneGeometry(8.1 / 14.5, 5.85 / 14.5);
 ```
-
-**實際操作流程：**
-1. 先把定位點放在貓咪圖騰旁邊
-2. 用手機掃描測試
-3. 看貼圖出現在哪裡，調整 position 的 x / y 值
-4. 重新上傳到 GitHub Pages，再測試
 
 ---
 
@@ -87,7 +63,7 @@ plane.position.set(
    ↓
 手指拖曳框選臉部
    ↓
-確認裁切 → 可下載圖片
+確認裁切
    ↓
 點擊「開啟 AR 體驗」→ ar.html
    ↓
